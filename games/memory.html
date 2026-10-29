@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>لعبة الذاكرة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .board {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        max-width: 440px;
+        margin: 0 auto;
+      }
+      .card {
+        aspect-ratio: 1;
+        perspective: 600px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+      }
+      .card .inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: transform 0.35s;
+        transform-style: preserve-3d;
+      }
+      .card.open .inner,
+      .card.matched .inner {
+        transform: rotateY(180deg);
+      }
+      .face {
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backface-visibility: hidden;
+        font-size: clamp(1.6rem, 8vw, 2.4rem);
+      }
+      .front {
+        background: var(--primary);
+        color: #fff;
+      }
+      .back {
+        background: var(--card);
+        border: 2px solid var(--border);
+        transform: rotateY(180deg);
+      }
+      .card.matched .back {
+        border-color: var(--success);
+        background: rgba(82, 196, 26, 0.12);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="top">
+        <h1>🃏 لعبة الذاكرة</h1>
+        <a class="back" href="index.html">← كل الألعاب</a>
+      </header>
+      <div class="panel">
+        <div class="toolbar">
+          <div class="stats">
+            <div class="stat"><span>المحاولات</span><b id="moves">0</b></div>
+            <div class="stat"><span>الوقت</span><b id="time">0</b></div>
+            <div class="stat"><span>الأفضل</span><b id="best">-</b></div>
+          </div>
+          <button class="btn" id="restart">لعبة جديدة</button>
+        </div>
+        <div class="board" id="board"></div>
+        <p class="message" id="msg"></p>
+      </div>
+    </div>
+    <script src="storage.js"></script>
+    <script>
+      var EMOJIS = ['🍎', '🚗', '🐱', '⚽', '🌙', '🎈', '🍕', '🦋'];
+      var board = document.getElementById('board');
+      var movesEl = document.getElementById('moves');
+      var timeEl = document.getElementById('time');
+      var bestEl = document.getElementById('best');
+      var msg = document.getElementById('msg');
+      var first, lock, moves, matched, seconds, timer;
+
+      function shuffle(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var t = arr[i];
+          arr[i] = arr[j];
+          arr[j] = t;
+        }
+        return arr;
+      }
+
+      function showBest() {
+        var best = GameStore.get('memory:best', null);
+        bestEl.textContent = best === null ? '-' : best;
+      }
+
+      function start() {
+        clearInterval(timer);
+        timer = null;
+        first = null;
+        lock = false;
+        moves = 0;
+        matched = 0;
+        seconds = 0;
+        movesEl.textContent = '0';
+        timeEl.textContent = '0';
+        msg.textContent = '';
+        board.innerHTML = '';
+        shuffle(EMOJIS.concat(EMOJIS)).forEach(function (emoji) {
+          var card = document.createElement('button');
+          card.className = 'card';
+          card.dataset.emoji = emoji;
+          card.setAttribute('aria-label', 'بطاقة');
+          card.innerHTML =
+            '<div class="inner"><div class="face front">?</div><div class="face back">' + emoji + '</div></div>';
+          card.addEventListener('click', function () {
+            flip(card);
+          });
+          board.appendChild(card);
+        });
+        showBest();
+      }
+
+      function flip(card) {
+        if (lock || card === first || card.classList.contains('matched')) return;
+        if (!timer) {
+          timer = setInterval(function () {
+            timeEl.textContent = ++seconds;
+          }, 1000);
+        }
+        card.classList.add('open');
+        if (!first) {
+          first = card;
+          return;
+        }
+        moves++;
+        movesEl.textContent = moves;
+        if (first.dataset.emoji === card.dataset.emoji) {
+          first.classList.add('matched');
+          card.classList.add('matched');
+          first = null;
+          matched += 2;
+          if (matched === EMOJIS.length * 2) win();
+        } else {
+          lock = true;
+          var a = first;
+          first = null;
+          setTimeout(function () {
+            a.classList.remove('open');
+            card.classList.remove('open');
+            lock = false;
+          }, 800);
+        }
+      }
+
+      function win() {
+        clearInterval(timer);
+        var best = GameStore.get('memory:best', null);
+        if (best === null || moves < best) {
+          GameStore.set('memory:best', moves);
+          msg.textContent = '🎉 رقم قياسي جديد! أنهيت اللعبة في ' + moves + ' محاولة';
+        } else {
+          msg.textContent = '👏 أحسنت! أنهيت اللعبة في ' + moves + ' محاولة و' + seconds + ' ثانية';
+        }
+        showBest();
+      }
+
+      document.getElementById('restart').addEventListener('click', start);
+      start();
+    </script>
+  </body>
+</html>

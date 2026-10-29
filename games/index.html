@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ركن الألعاب</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="top">
+        <div>
+          <h1>🎮 ركن الألعاب</h1>
+          <p class="subtitle">ألعاب خفيفة ومسلية، تعمل على الجوال والكمبيوتر</p>
+        </div>
+      </header>
+
+      <div class="grid">
+        <a class="game-card" href="memory.html">
+          <div class="icon">🃏</div>
+          <h2>لعبة الذاكرة</h2>
+          <p>اقلب البطاقات وطابق الأزواج بأقل عدد من المحاولات.</p>
+          <div class="best" data-best="memory" data-label="أفضل نتيجة: " data-suffix=" محاولة"></div>
+        </a>
+        <a class="game-card" href="tictactoe.html">
+          <div class="icon">❌⭕</div>
+          <h2>إكس-أو</h2>
+          <p>العب ضد صديق أو ضد الكمبيوتر بثلاثة مستويات.</p>
+        </a>
+        <a class="game-card" href="2048.html">
+          <div class="icon">🔢</div>
+          <h2>2048</h2>
+          <p>ادمج المربعات المتشابهة حتى تصل إلى 2048.</p>
+          <div class="best" data-best="2048" data-label="أعلى نتيجة: "></div>
+        </a>
+        <a class="game-card" href="snake.html">
+          <div class="icon">🐍</div>
+          <h2>الثعبان</h2>
+          <p>كُل التفاح وكبّر الثعبان دون أن تصطدم.</p>
+          <div class="best" data-best="snake" data-label="أعلى نتيجة: "></div>
+        </a>
+      </div>
+    </div>
+
+    <script src="storage.js"></script>
+    <script>
+      document.querySelectorAll('[data-best]').forEach(function (el) {
+        var best = GameStore.get(el.dataset.best + ':best', null);
+        if (best !== null) el.textContent = el.dataset.label + best + (el.dataset.suffix || '');
+      });
+    </script>
+  </body>
+</html>

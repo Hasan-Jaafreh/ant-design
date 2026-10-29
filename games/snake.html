@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>لعبة الثعبان</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 420px;
+        aspect-ratio: 1;
+        margin: 0 auto;
+        border-radius: 12px;
+        background: #1b2b1f;
+        touch-action: none;
+      }
+      .pad {
+        display: grid;
+        grid-template-columns: repeat(3, 56px);
+        gap: 6px;
+        justify-content: center;
+        margin-top: 14px;
+        direction: ltr;
+      }
+      .pad button {
+        height: 56px;
+        font-size: 1.4rem;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="top">
+        <h1>🐍 الثعبان</h1>
+        <a class="back" href="index.html">← كل الألعاب</a>
+      </header>
+      <div class="panel">
+        <div class="toolbar">
+          <div class="stats">
+            <div class="stat"><span>النتيجة</span><b id="score">0</b></div>
+            <div class="stat"><span>الأعلى</span><b id="best">0</b></div>
+          </div>
+          <button class="btn" id="start">ابدأ</button>
+        </div>
+        <canvas id="c" width="400" height="400"></canvas>
+        <p class="message" id="msg">اضغط "ابدأ" للعب</p>
+        <div class="pad">
+          <span></span><button class="btn ghost" data-d="up">▲</button><span></span>
+          <button class="btn ghost" data-d="left">◀</button>
+          <button class="btn ghost" data-d="down">▼</button>
+          <button class="btn ghost" data-d="right">▶</button>
+        </div>
+        <p class="help">الأسهم أو W A S D على الكمبيوتر، والسحب أو الأزرار على الجوال. المسافة للإيقاف المؤقت.</p>
+      </div>
+    </div>
+    <script src="storage.js"></script>
+    <script>
+      var SIZE = 20;
+      var CELL = 400 / SIZE;
+      var canvas = document.getElementById('c');
+      var ctx = canvas.getContext('2d');
+      var scoreEl = document.getElementById('score');
+      var bestEl = document.getElementById('best');
+      var msg = document.getElementById('msg');
+      var DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+      var snake, dir, queue, food, score, best, timer, running, paused;
+
+      best = GameStore.get('snake:best', 0);
+      bestEl.textContent = best;
+
+      function placeFood() {
+        do {
+          food = [Math.floor(Math.random() * SIZE), Math.floor(Math.random() * SIZE)];
+        } while (snake.some(function (s) { return s[0] === food[0] && s[1] === food[1]; }));
+      }
+
+      function draw() {
+        ctx.fillStyle = '#1b2b1f';
+        ctx.fillRect(0, 0, 400, 400);
+        ctx.font = CELL * 0.9 + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🍎', food[0] * CELL + CELL / 2, food[1] * CELL + CELL / 2 + 1);
+        snake.forEach(function (s, i) {
+          ctx.fillStyle = i === 0 ? '#95de64' : '#52c41a';
+          ctx.beginPath();
+          ctx.roundRect(s[0] * CELL + 1, s[1] * CELL + 1, CELL - 2, CELL - 2, 5);
+          ctx.fill();
+        });
+      }
+
+      function speed() {
+        return Math.max(60, 150 - score * 3);
+      }
+
+      function tick() {
+        if (queue.length) dir = queue.shift();
+        var head = [snake[0][0] + dir[0], snake[0][1] + dir[1]];
+        var hitWall = head[0] < 0 || head[1] < 0 || head[0] >= SIZE || head[1] >= SIZE;
+        var hitSelf = snake.some(function (s) { return s[0] === head[0] && s[1] === head[1]; });
+        if (hitWall || hitSelf) return gameOver();
+        snake.unshift(head);
+        if (head[0] === food[0] && head[1] === food[1]) {
+          score++;
+          scoreEl.textContent = score;
+          placeFood();
+          clearInterval(timer);
+          timer = setInterval(tick, speed());
+        } else {
+          snake.pop();
+        }
+        draw();
+      }
+
+      function start() {
+        clearInterval(timer);
+        snake = [[10, 10], [9, 10], [8, 10]];
+        dir = DIRS.right;
+        queue = [];
+        score = 0;
+        scoreEl.textContent = '0';
+        running = true;
+        paused = false;
+        msg.textContent = '';
+        placeFood();
+        draw();
+        timer = setInterval(tick, speed());
+        canvas.focus();
+      }
+
+      function gameOver() {
+        clearInterval(timer);
+        running = false;
+        if (score > best) {
+          best = score;
+          GameStore.set('snake:best', best);
+          bestEl.textContent = best;
+          msg.textContent = '🎉 رقم قياسي جديد: ' + score;
+        } else {
+          msg.textContent = '💥 انتهت اللعبة! نتيجتك ' + score;
+        }
+        document.getElementById('start').textContent = 'العب مجدداً';
+      }
+
+      function turn(name) {
+        if (!running) return;
+        var d = DIRS[name];
+        var last = queue.length ? queue[queue.length - 1] : dir;
+        if (d[0] === -last[0] && d[1] === -last[1]) return;
+        if (d === last) return;
+        if (queue.length < 3) queue.push(d);
+      }
+
+      function togglePause() {
+        if (!running) return;
+        paused = !paused;
+        if (paused) {
+          clearInterval(timer);
+          msg.textContent = '⏸ إيقاف مؤقت';
+        } else {
+          msg.textContent = '';
+          timer = setInterval(tick, speed());
+        }
+      }
+
+      var KEYS = {
+        ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+        w: 'up', s: 'down', a: 'left', d: 'right',
+      };
+      document.addEventListener('keydown', function (e) {
+        var k = KEYS[e.key] || KEYS[e.key.toLowerCase()];
+        if (k) {
+          e.preventDefault();
+          turn(k);
+        } else if (e.key === ' ') {
+          e.preventDefault();
+          if (running) togglePause();
+          else start();
+        }
+      });
+
+      document.querySelectorAll('.pad button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          turn(b.dataset.d);
+        });
+      });
+
+      var sx, sy;
+      canvas.addEventListener('touchstart', function (e) {
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+      }, { passive: true });
+      canvas.addEventListener('touchend', function (e) {
+        var dx = e.changedTouches[0].clientX - sx;
+        var dy = e.changedTouches[0].clientY - sy;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+        if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? 'right' : 'left');
+        else turn(dy > 0 ? 'down' : 'up');
+      });
+
+      document.getElementById('start').addEventListener('click', start);
+
+      snake = [[10, 10], [9, 10], [8, 10]];
+      placeFood();
+      draw();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>لعبة 2048</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .board {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        background: #bbada0;
+        padding: 10px;
+        border-radius: 12px;
+        max-width: 420px;
+        margin: 0 auto;
+        touch-action: none;
+        direction: ltr;
+      }
+      .tile {
+        aspect-ratio: 1;
+        border-radius: 8px;
+        background: rgba(238, 228, 218, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: clamp(1.2rem, 7vw, 2rem);
+        color: #776e65;
+      }
+      .tile.pop {
+        animation: pop 0.15s ease-out;
+      }
+      @keyframes pop {
+        from { transform: scale(0.6); }
+        to { transform: scale(1); }
+      }
+      .t2 { background: #eee4da; }
+      .t4 { background: #ede0c8; }
+      .t8 { background: #f2b179; color: #fff; }
+      .t16 { background: #f59563; color: #fff; }
+      .t32 { background: #f67c5f; color: #fff; }
+      .t64 { background: #f65e3b; color: #fff; }
+      .t128 { background: #edcf72; color: #fff; font-size: clamp(1rem, 6vw, 1.7rem); }
+      .t256 { background: #edcc61; color: #fff; font-size: clamp(1rem, 6vw, 1.7rem); }
+      .t512 { background: #edc850; color: #fff; font-size: clamp(1rem, 6vw, 1.7rem); }
+      .t1024 { background: #edc53f; color: #fff; font-size: clamp(0.9rem, 5vw, 1.4rem); }
+      .t2048 { background: #edc22e; color: #fff; font-size: clamp(0.9rem, 5vw, 1.4rem); }
+      .tbig { background: #3c3a32; color: #fff; font-size: clamp(0.9rem, 5vw, 1.4rem); }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="top">
+        <h1>🔢 2048</h1>
+        <a class="back" href="index.html">← كل الألعاب</a>
+      </header>
+      <div class="panel">
+        <div class="toolbar">
+          <div class="stats">
+            <div class="stat"><span>النتيجة</span><b id="score">0</b></div>
+            <div class="stat"><span>الأعلى</span><b id="best">0</b></div>
+          </div>
+          <button class="btn" id="restart">لعبة جديدة</button>
+        </div>
+        <div class="board" id="board"></div>
+        <p class="message" id="msg"></p>
+        <p class="help">استخدم الأسهم في لوحة المفاتيح، أو اسحب بإصبعك على الجوال</p>
+      </div>
+    </div>
+    <script src="storage.js"></script>
+    <script>
+      var N = 4;
+      var boardEl = document.getElementById('board');
+      var scoreEl = document.getElementById('score');
+      var bestEl = document.getElementById('best');
+      var msg = document.getElementById('msg');
+      var tiles = [];
+      var grid, score, best, won, over, fresh;
+
+      for (var i = 0; i < N * N; i++) {
+        var t = document.createElement('div');
+        t.className = 'tile';
+        boardEl.appendChild(t);
+        tiles.push(t);
+      }
+
+      function addRandom() {
+        var empty = [];
+        grid.forEach(function (v, j) {
+          if (!v) empty.push(j);
+        });
+        if (!empty.length) return;
+        var idx = empty[Math.floor(Math.random() * empty.length)];
+        grid[idx] = Math.random() < 0.9 ? 2 : 4;
+        fresh = idx;
+      }
+
+      function render() {
+        grid.forEach(function (v, j) {
+          var tile = tiles[j];
+          tile.textContent = v || '';
+          tile.className = 'tile' + (v ? (v > 2048 ? ' tbig' : ' t' + v) : '') + (j === fresh ? ' pop' : '');
+        });
+        scoreEl.textContent = score;
+        bestEl.textContent = best;
+      }
+
+      // Slide one row toward index 0, merging equal neighbours once.
+      function slide(row) {
+        var vals = row.filter(Boolean);
+        var out = [];
+        for (var k = 0; k < vals.length; k++) {
+          if (vals[k] === vals[k + 1]) {
+            out.push(vals[k] * 2);
+            score += vals[k] * 2;
+            if (vals[k] * 2 === 2048) won = true;
+            k++;
+          } else {
+            out.push(vals[k]);
+          }
+        }
+        while (out.length < N) out.push(0);
+        return out;
+      }
+
+      // dir: 0 left, 1 right, 2 up, 3 down
+      function lineIndices(dir, n) {
+        var idx = [];
+        for (var k = 0; k < N; k++) {
+          if (dir === 0) idx.push(n * N + k);
+          if (dir === 1) idx.push(n * N + (N - 1 - k));
+          if (dir === 2) idx.push(k * N + n);
+          if (dir === 3) idx.push((N - 1 - k) * N + n);
+        }
+        return idx;
+      }
+
+      function move(dir) {
+        if (over) return;
+        var before = grid.join(',');
+        var hadWon = won;
+        for (var n = 0; n < N; n++) {
+          var idx = lineIndices(dir, n);
+          var row = slide(idx.map(function (j) { return grid[j]; }));
+          idx.forEach(function (j, k) { grid[j] = row[k]; });
+        }
+        if (grid.join(',') === before) return;
+        addRandom();
+        if (score > best) {
+          best = score;
+          GameStore.set('2048:best', best);
+        }
+        render();
+        if (won && !hadWon) msg.textContent = '🏆 وصلت إلى 2048! يمكنك الاستمرار';
+        if (!canMove()) {
+          over = true;
+          msg.textContent = '😅 انتهت اللعبة! نتيجتك ' + score;
+        }
+      }
+
+      function canMove() {
+        for (var j = 0; j < N * N; j++) {
+          if (!grid[j]) return true;
+          if (j % N < N - 1 && grid[j] === grid[j + 1]) return true;
+          if (j + N < N * N && grid[j] === grid[j + N]) return true;
+        }
+        return false;
+      }
+
+      function start() {
+        grid = Array(N * N).fill(0);
+        score = 0;
+        won = false;
+        over = false;
+        best = GameStore.get('2048:best', 0);
+        msg.textContent = '';
+        addRandom();
+        addRandom();
+        render();
+      }
+
+      var KEYS = { ArrowLeft: 0, ArrowRight: 1, ArrowUp: 2, ArrowDown: 3 };
+      document.addEventListener('keydown', function (e) {
+        if (e.key in KEYS) {
+          e.preventDefault();
+          move(KEYS[e.key]);
+        }
+      });
+
+      var sx, sy;
+      boardEl.addEventListener('touchstart', function (e) {
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+      }, { passive: true });
+      boardEl.addEventListener('touchend', function (e) {
+        var dx = e.changedTouches[0].clientX - sx;
+        var dy = e.changedTouches[0].clientY - sy;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 25) return;
+        if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 1 : 0);
+        else move(dy > 0 ? 3 : 2);
+      });
+
+      document.getElementById('restart').addEventListener('click', start);
+      start();
+    </script>
+  </body>
+</html>

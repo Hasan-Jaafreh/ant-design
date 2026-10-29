@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>إكس-أو</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        max-width: 340px;
+        margin: 0 auto;
+        direction: ltr;
+      }
+      .cell {
+        aspect-ratio: 1;
+        border: 2px solid var(--border);
+        background: var(--bg);
+        border-radius: 12px;
+        font-size: clamp(2.4rem, 14vw, 3.6rem);
+        font-weight: 700;
+        cursor: pointer;
+        color: var(--text);
+        font-family: inherit;
+      }
+      .cell.x {
+        color: var(--primary);
+      }
+      .cell.o {
+        color: var(--accent);
+      }
+      .cell.win {
+        background: rgba(82, 196, 26, 0.18);
+        border-color: var(--success);
+      }
+      select {
+        font: inherit;
+        padding: 9px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="top">
+        <h1>❌⭕ إكس-أو</h1>
+        <a class="back" href="index.html">← كل الألعاب</a>
+      </header>
+      <div class="panel">
+        <div class="toolbar">
+          <select id="mode" aria-label="نمط اللعب">
+            <option value="easy">ضد الكمبيوتر - سهل</option>
+            <option value="medium" selected>ضد الكمبيوتر - متوسط</option>
+            <option value="hard">ضد الكمبيوتر - صعب</option>
+            <option value="pvp">لاعبان</option>
+          </select>
+          <button class="btn" id="restart">جولة جديدة</button>
+        </div>
+        <div class="stats">
+          <div class="stat"><span>X</span><b id="sx">0</b></div>
+          <div class="stat"><span>تعادل</span><b id="sd">0</b></div>
+          <div class="stat"><span>O</span><b id="so">0</b></div>
+        </div>
+        <div class="board" id="board"></div>
+        <p class="message" id="msg"></p>
+      </div>
+    </div>
+    <script>
+      var LINES = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6],
+      ];
+      var boardEl = document.getElementById('board');
+      var msg = document.getElementById('msg');
+      var modeEl = document.getElementById('mode');
+      var score = { X: 0, O: 0, D: 0 };
+      var cells = [];
+      var state, turn, over;
+
+      for (var i = 0; i < 9; i++) {
+        var c = document.createElement('button');
+        c.className = 'cell';
+        c.dataset.i = i;
+        c.addEventListener('click', function (e) {
+          play(+e.currentTarget.dataset.i, true);
+        });
+        boardEl.appendChild(c);
+        cells.push(c);
+      }
+
+      function winner(b) {
+        for (var k = 0; k < LINES.length; k++) {
+          var l = LINES[k];
+          if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return { player: b[l[0]], line: l };
+        }
+        return b.indexOf(null) === -1 ? { player: 'D' } : null;
+      }
+
+      function minimax(b, player) {
+        var w = winner(b);
+        if (w) return { score: w.player === 'O' ? 10 : w.player === 'X' ? -10 : 0 };
+        var best = { score: player === 'O' ? -Infinity : Infinity };
+        for (var j = 0; j < 9; j++) {
+          if (b[j]) continue;
+          b[j] = player;
+          var s = minimax(b, player === 'O' ? 'X' : 'O').score;
+          b[j] = null;
+          if (player === 'O' ? s > best.score : s < best.score) best = { score: s, move: j };
+        }
+        return best;
+      }
+
+      function aiMove() {
+        var empty = [];
+        state.forEach(function (v, j) {
+          if (!v) empty.push(j);
+        });
+        var mode = modeEl.value;
+        var random = mode === 'easy' ? 1 : mode === 'medium' ? 0.4 : 0;
+        if (Math.random() < random) return empty[Math.floor(Math.random() * empty.length)];
+        return minimax(state.slice(), 'O').move;
+      }
+
+      function render() {
+        cells.forEach(function (c, j) {
+          c.textContent = state[j] || '';
+          c.className = 'cell' + (state[j] ? ' ' + state[j].toLowerCase() : '');
+        });
+      }
+
+      function play(idx, byHuman) {
+        if (over || state[idx]) return;
+        if (byHuman && modeEl.value !== 'pvp' && turn === 'O') return;
+        state[idx] = turn;
+        turn = turn === 'X' ? 'O' : 'X';
+        render();
+        var w = winner(state);
+        if (w) return finish(w);
+        msg.textContent = 'الدور على: ' + turn;
+        if (modeEl.value !== 'pvp' && turn === 'O') {
+          setTimeout(function () {
+            play(aiMove(), false);
+          }, 350);
+        }
+      }
+
+      function finish(w) {
+        over = true;
+        score[w.player]++;
+        document.getElementById('sx').textContent = score.X;
+        document.getElementById('so').textContent = score.O;
+        document.getElementById('sd').textContent = score.D;
+        if (w.player === 'D') {
+          msg.textContent = '🤝 تعادل!';
+          return;
+        }
+        w.line.forEach(function (j) {
+          cells[j].classList.add('win');
+        });
+        if (modeEl.value === 'pvp') msg.textContent = '🎉 فاز اللاعب ' + w.player;
+        else msg.textContent = w.player === 'X' ? '🎉 فزت!' : '🤖 فاز الكمبيوتر، حاول مرة أخرى';
+      }
+
+      function start() {
+        state = Array(9).fill(null);
+        turn = 'X';
+        over = false;
+        render();
+        msg.textContent = modeEl.value === 'pvp' ? 'الدور على: X' : 'أنت X، ابدأ اللعب';
+      }
+
+      modeEl.addEventListener('change', function () {
+        score = { X: 0, O: 0, D: 0 };
+        ['sx', 'so', 'sd'].forEach(function (id) {
+          document.getElementById(id).textContent = '0';
+        });
+        start();
+      });
+      document.getElementById('restart').addEventListener('click', start);
+      start();
+    </script>
+  </body>
+</html>
