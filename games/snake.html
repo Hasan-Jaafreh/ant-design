@@ -78,6 +78,18 @@
         } while (snake.some(function (s) { return s[0] === food[0] && s[1] === food[1]; }));
       }
 
+      // ctx.roundRect is missing in older Safari / in-app browsers, so draw the corners by hand.
+      function roundedSquare(x, y, size, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + size, y, x + size, y + size, r);
+        ctx.arcTo(x + size, y + size, x, y + size, r);
+        ctx.arcTo(x, y + size, x, y, r);
+        ctx.arcTo(x, y, x + size, y, r);
+        ctx.closePath();
+        ctx.fill();
+      }
+
       function draw() {
         ctx.fillStyle = '#1b2b1f';
         ctx.fillRect(0, 0, 400, 400);
@@ -87,9 +99,7 @@
         ctx.fillText('🍎', food[0] * CELL + CELL / 2, food[1] * CELL + CELL / 2 + 1);
         snake.forEach(function (s, i) {
           ctx.fillStyle = i === 0 ? '#95de64' : '#52c41a';
-          ctx.beginPath();
-          ctx.roundRect(s[0] * CELL + 1, s[1] * CELL + 1, CELL - 2, CELL - 2, 5);
-          ctx.fill();
+          roundedSquare(s[0] * CELL + 1, s[1] * CELL + 1, CELL - 2, 5);
         });
       }
 
